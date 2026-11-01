@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de hedge da carteira</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: entradas à esquerda; à direita, leitura em ordem de decisão: perfil → recomendação → detalhe → simulação */
+  --bg:#f2f4f6; --surface:#ffffff; --surface-2:#eef1f4; --ink:#111820; --ink-2:#45505e; --muted:#727d8b; --line:#dbe0e7;
+  --accent:#0a6766; --accent-soft:#dcefed; --accent-ink:#ffffff;
+  --good:#127a12; --good-soft:#e2f3e2; --warn:#8f6000; --warn-soft:#fbf0d6; --bad:#b83030; --bad-soft:#f8e3e3;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --ref:#8a929c;
+  --grid:#e7ebef; --axis:#c3c9d1;
+  --font-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1215; --surface:#161b20; --surface-2:#1e252b; --ink:#edf1f4; --ink-2:#b6c0ca; --muted:#8a94a1; --line:#2a333b;
+    --accent:#3fb5ad; --accent-soft:#143130; --accent-ink:#06201f;
+    --good:#3cc43c; --good-soft:#143018; --warn:#e2a93a; --warn-soft:#33270e; --bad:#ef7373; --bad-soft:#3a1a1a;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --ref:#7d8692;
+    --grid:#252d34; --axis:#3a444d;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1215; --surface:#161b20; --surface-2:#1e252b; --ink:#edf1f4; --ink-2:#b6c0ca; --muted:#8a94a1; --line:#2a333b;
+  --accent:#3fb5ad; --accent-soft:#143130; --accent-ink:#06201f;
+  --good:#3cc43c; --good-soft:#143018; --warn:#e2a93a; --warn-soft:#33270e; --bad:#ef7373; --bad-soft:#3a1a1a;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --ref:#7d8692;
+  --grid:#252d34; --axis:#3a444d;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:30px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:19px;font-weight:600}
+h3{font-size:16px;font-weight:600}
+p{margin:0}
+.num,.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.wrap{max-width:1320px;margin:0 auto;padding:24px 20px 48px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:22px}
+header.top p{color:var(--ink-2);max-width:62ch;margin-top:6px}
+.datachip{font-size:12.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 12px;white-space:nowrap}
+.layout{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:960px){.layout{grid-template-columns:1fr}}
+.panel{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.card > h2{margin-bottom:12px}
+.card .sub{color:var(--muted);font-size:13px;margin:-8px 0 12px}
+label,.lbl{display:block;font-size:13px;font-weight:500;color:var(--ink-2);margin-bottom:5px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+input[type=number],select{width:100%;font:inherit;font-size:14.5px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:8px 10px;min-height:38px}
+input[type=number]{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+input:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible,.seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.field{display:flex;flex-direction:column}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.big-money{font-family:var(--font-mono);font-size:13px;color:var(--muted);margin-top:4px}
+.pos-list{display:flex;flex-direction:column;gap:8px}
+.pos-row{display:grid;grid-template-columns:minmax(0,1fr) 76px 34px;gap:8px;align-items:start}
+.pos-row .val{grid-column:1 / -1;margin-top:-4px;font-size:12px;color:var(--muted);font-family:var(--font-mono)}
+.pos-row .pctwrap{position:relative}
+.pos-row .pctwrap input{padding-right:22px}
+.pos-row .pctwrap span{position:absolute;right:9px;top:9px;color:var(--muted);font-size:13px;pointer-events:none}
+button{font:inherit;cursor:pointer}
+.icon-btn{width:34px;height:38px;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:7px;font-size:18px;line-height:1}
+.icon-btn:hover{color:var(--bad);border-color:var(--bad)}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.btn{border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:7px;padding:7px 12px;font-size:13.5px;font-weight:500}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08);color:var(--accent-ink)}
+.sumline{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:13px;padding:7px 10px;border-radius:7px;background:var(--surface-2)}
+.sumline.bad{background:var(--warn-soft);color:var(--warn)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{margin:0;cursor:pointer}
+.seg input{position:absolute;opacity:0;width:1px;height:1px}
+.seg span{display:inline-block;padding:6px 11px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--ink-2);background:var(--surface)}
+.seg input:checked + span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.seg label:hover span{border-color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.rangehead{display:flex;justify-content:space-between;align-items:baseline}
+.rangehead output{font-family:var(--font-mono);font-weight:500;color:var(--ink)}
+details{border-top:1px solid var(--line);padding-top:12px;margin-top:14px}
+details summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:"+";font-family:var(--font-mono);color:var(--muted);font-size:16px}
+details[open] summary::after{content:"−"}
+details .inner{margin-top:12px}
+.sect-table{width:100%;border-collapse:collapse;font-size:13px}
+.sect-table th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:4px 4px 6px;border-bottom:1px solid var(--line)}
+.sect-table td{padding:4px;border-bottom:1px solid var(--line);vertical-align:middle}
+.sect-table td:first-child{color:var(--ink-2);line-height:1.25}
+.sect-table input{min-height:30px;padding:4px 6px;font-size:13px;width:64px}
+.sect-table .grp td{font-weight:600;color:var(--ink);background:var(--surface-2);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.scroll-x{overflow-x:auto}
+
+/* Resultados */
+.results{display:flex;flex-direction:column;gap:16px;min-width:0}
+.alert{border-radius:10px;padding:12px 14px;font-size:14px;background:var(--warn-soft);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:720px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:13px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.tile .k{font-size:12.5px;color:var(--muted)}
+.tile .v{font-family:var(--font-display);font-size:24px;font-weight:600;line-height:1.15}
+.tile .d{font-size:12.5px;color:var(--ink-2)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap;line-height:1.6}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.chip.neutral{background:var(--surface-2);color:var(--ink-2)}
+.reco{border-left:4px solid var(--accent)}
+.reco .eyebrow{font-size:12.5px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.reco h2{font-size:24px;margin-bottom:6px}
+.reco .lead{color:var(--ink-2);max-width:70ch}
+.why{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+@media (max-width:620px){.why{grid-template-columns:1fr}}
+.why h3{font-size:13.5px;color:var(--ink-2);margin-bottom:6px}
+.why ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.why li{padding-left:18px;position:relative}
+.why li::before{position:absolute;left:0;top:0;font-weight:700;font-family:var(--font-mono)}
+.why .pro li::before{content:"+";color:var(--good)}
+.why .con li::before{content:"!";color:var(--warn)}
+.rank{display:flex;flex-direction:column;gap:2px;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.rank-row{display:grid;grid-template-columns:22px minmax(140px,1.2fr) 112px minmax(80px,1fr) 34px;gap:10px;align-items:center;padding:7px 0;font-size:14px}
+.rank-row .pos{font-family:var(--font-mono);color:var(--muted)}
+.rank-row .nm{font-weight:600}
+.bar{height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.rank-row .sc{font-family:var(--font-mono);font-size:13px;color:var(--ink-2);text-align:right}
+@media (max-width:560px){.rank-row{grid-template-columns:20px 1fr auto;}.rank-row .bar,.rank-row .sc{display:none}}
+.inst-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.inst-grid{grid-template-columns:1fr}}
+.inst{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.inst.top{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.inst-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.inst-head .tick{font-size:12px;color:var(--muted);font-family:var(--font-mono)}
+.kv{display:grid;grid-template-columns:auto auto;gap:5px 12px;font-size:13.5px;margin:0}
+.kv dt{color:var(--ink-2)}
+.kv dd{margin:0;text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.note{font-size:12.5px;color:var(--ink-2);background:var(--surface-2);border-radius:7px;padding:8px 10px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2);margin-bottom:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px}
+.legend i.dash{background:repeating-linear-gradient(90deg,var(--ref) 0 4px,transparent 4px 7px)!important}
+.legend .off{color:var(--muted);text-decoration:line-through}
+#grafico{position:relative;width:100%}
+#grafico svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:9px 11px;font-size:12.5px;min-width:210px;display:none;z-index:2}
+.tip .th{font-weight:600;margin-bottom:5px;color:var(--ink)}
+.tip .tr{display:grid;grid-template-columns:12px 1fr auto;gap:6px;align-items:center;color:var(--ink-2)}
+.tip .tr b{font-family:var(--font-mono);font-weight:500;color:var(--ink);text-align:right}
+.tip .sw{width:10px;height:3px;border-radius:2px}
+.axis-note{font-size:12px;color:var(--muted);margin-top:6px}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.presets button{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:5px 11px;font-size:13px}
+.presets button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.presets button:hover{border-color:var(--accent)}
+.cen-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,180px));gap:12px;margin-bottom:14px}
+table.res{width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px}
+table.res th{font-weight:500;color:var(--muted);font-size:12px;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.res th:first-child,table.res td:first-child{text-align:left}
+table.res td{white-space:nowrap;padding:8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+table.res td:first-child{font-family:var(--font-body);font-weight:500}
+table.res td .sw{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:8px;vertical-align:middle}
+.pos-v{color:var(--good)} .neg-v{color:var(--bad)}
+table.comp{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+table.comp th{font-weight:500;color:var(--muted);font-size:12px;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.comp th:first-child,table.comp td:first-child{text-align:left}
+table.comp td{white-space:nowrap;padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+table.comp td:first-child{font-family:var(--font-body)}
+table.comp td.ch{font-family:var(--font-body)}
+footer.disc{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;display:flex;flex-direction:column;gap:6px;max-width:100ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:480px){.wrap{padding:18px 14px 40px}h1{font-size:25px}.grid2{grid-template-columns:1fr}.cen-inputs{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Calculadora de hedge da carteira</h1>
+      <p>Informe o valor da carteira e o peso de cada setor. A calculadora estima como ela reage à bolsa e ao dólar e compara put de BOVA11, mini índice, mini dólar e reduzir a posição.</p>
+    </div>
+    <span class="datachip">Dados de referência: fechamento de 30/10/2026</span>
+  </header>
+
+  <div class="layout">
+    <!-- ENTRADAS -->
+    <section class="panel" aria-label="Entradas">
+      <div class="card">
+        <h2>Sua carteira</h2>
+        <p class="sub">Carteira de exemplo. Troque pelos seus números.</p>
+        <div class="field">
+          <label for="in-valor">Valor total em ações (R$)</label>
+          <input type="number" id="in-valor" min="0" step="1000" data-key="valor">
+          <div class="big-money" id="valor-fmt"></div>
+        </div>
+        <div style="margin-top:14px">
+          <span class="lbl">Setores e peso na carteira</span>
+          <div class="pos-list" id="pos-list"></div>
+          <div class="sumline" id="sumline"></div>
+          <div class="btn-row">
+            <button class="btn" type="button" id="btn-add">+ Adicionar setor</button>
+            <button class="btn" type="button" id="btn-equal">Dividir igualmente</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Seu perfil e objetivo</h2>
+        <div class="stack">
+          <div class="grid2">
+            <div class="field">
+              <label for="in-meses">Prazo da proteção</label>
+              <select id="in-meses" data-key="meses" data-type="int">
+                <option value="1">1 mês</option><option value="2">2 meses</option><option value="3">3 meses</option><option value="6">6 meses</option><option value="12">12 meses</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="in-caixa">Caixa livre (R$)</label>
+              <input type="number" id="in-caixa" min="0" step="1000" data-key="caixa">
+            </div>
+          </div>
+          <div class="field">
+            <div class="rangehead"><label for="in-hedge">Quanto da carteira proteger</label><output id="out-hedge" for="in-hedge"></output></div>
+            <input type="range" id="in-hedge" min="0.25" max="1" step="0.05" data-key="hedge">
+          </div>
+          <div class="field">
+            <label for="in-exp">Experiência com derivativos</label>
+            <select id="in-exp" data-key="exp">
+              <option value="nunca">Nunca operei opções nem futuros</option>
+              <option value="opcoes">Já operei opções</option>
+              <option value="futuros">Opero futuros (mini índice ou mini dólar)</option>
+            </select>
+          </div>
+          <div class="field">
+            <span class="lbl" id="lbl-pri">O que pesa mais para você</span>
+            <div class="seg" role="radiogroup" aria-labelledby="lbl-pri">
+              <label><input type="radio" name="pri" id="pri-alta" value="alta" data-key="pri"><span>Manter o ganho se subir</span></label>
+              <label><input type="radio" name="pri" id="pri-eq" value="equilibrio" data-key="pri"><span>Equilíbrio</span></label>
+              <label><input type="radio" name="pri" id="pri-custo" value="custo" data-key="pri"><span>Gastar o mínimo</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <span class="lbl" id="lbl-risco">Do que você quer se proteger</span>
+            <div class="seg" role="radiogroup" aria-labelledby="lbl-risco">
+              <label><input type="radio" name="risco" id="risco-bolsa" value="bolsa" data-key="risco"><span>Queda da bolsa</span></label>
+              <label><input type="radio" name="risco" id="risco-fiscal" value="fiscal" data-key="risco"><span>Crise fiscal (bolsa cai, dólar sobe)</span></label>
+              <label><input type="radio" name="risco" id="risco-ambos" value="ambos" data-key="risco"><span>Os dois</span></label>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label for="in-estrutura">Estrutura com opções</label>
+              <select id="in-estrutura" data-key="estrutura">
+                <option value="put">Put seca</option>
+                <option value="trava">Trava de baixa (put spread)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="in-strike">Strike da put</label>
+              <select id="in-strike" data-key="strike" data-type="float">
+                <option value="1">No dinheiro (100%)</option>
+                <option value="0.95">5% abaixo (95%)</option>
+                <option value="0.9">10% abaixo (90%)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Dados de mercado</h2>
+        <p class="sub">Atualize antes de usar. Ibovespa, dólar e CDI são de 30/10/2026; os demais são estimativas.</p>
+        <div class="grid2">
+          <div class="field"><label for="m-ibov">Ibovespa (pontos)</label><input type="number" id="m-ibov" step="100" data-key="mkt.ibov"></div>
+          <div class="field"><label for="m-usd">Dólar (R$)</label><input type="number" id="m-usd" step="0.01" data-key="mkt.usd"></div>
+          <div class="field"><label for="m-bova">BOVA11 (R$)</label><input type="number" id="m-bova" step="0.1" data-key="mkt.bova"><div class="hint">Estimado. Confira a cotação.</div></div>
+          <div class="field"><label for="m-cdi">CDI (% a.a.)</label><input type="number" id="m-cdi" step="0.05" data-key="mkt.cdi" data-unit="pct"><div class="hint">Selic meta 13,75%</div></div>
+          <div class="field"><label for="m-vol">Vol. implícita BOVA11 (% a.a.)</label><input type="number" id="m-vol" step="1" data-key="mkt.vol" data-unit="pct"><div class="hint">Sobe depois de quedas fortes e encarece a put.</div></div>
+          <div class="field"><label for="m-usdr">Juro em dólar (% a.a.)</label><input type="number" id="m-usdr" step="0.1" data-key="mkt.usdRate" data-unit="pct"><div class="hint">Cupom cambial. Define o custo do dólar futuro.</div></div>
+        </div>
+
+        <details>
+          <summary>Premissas avançadas</summary>
+          <div class="inner grid2">
+            <div class="field"><label for="p-voli">Volatilidade do Ibovespa (% a.a.)</label><input type="number" id="p-voli" step="1" data-key="prem.volI" data-unit="pct"></div>
+            <div class="field"><label for="p-volu">Volatilidade do dólar (% a.a.)</label><input type="number" id="p-volu" step="1" data-key="prem.volU" data-unit="pct"></div>
+            <div class="field"><label for="p-rho">Correlação bolsa × dólar</label><input type="number" id="p-rho" step="0.05" min="-1" max="1" data-key="prem.rho"><div class="hint">Usada para dimensionar o hedge e medir a eficácia.</div></div>
+            <div class="field"><label for="p-k">Dólar sobe X% a cada 1% de queda</label><input type="number" id="p-k" step="0.05" data-key="prem.k"><div class="hint">Usado no gráfico. Na semana pós-eleição foi ≈ 0,5.</div></div>
+            <div class="field"><label for="p-marg">Margem dos futuros (% do nocional)</label><input type="number" id="p-marg" step="1" data-key="prem.margem" data-unit="pct"><div class="hint">Estimativa. Confira na corretora.</div></div>
+            <div class="field"><label for="p-res">Reserva para ajustes (% do nocional)</label><input type="number" id="p-res" step="1" data-key="prem.reserva" data-unit="pct"><div class="hint">Caixa para aguentar o mercado contra o hedge.</div></div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Premissas por setor</summary>
+          <div class="inner">
+            <p class="hint" style="margin:0 0 10px">Beta: quanto o setor oscila para cada 1% do Ibovespa. Dólar: efeito extra de 1% de alta do dólar, além do efeito da bolsa. Risco próprio: volatilidade anual que o Ibovespa não explica. Valores de referência aproximados; ajuste com os dados da sua carteira.</p>
+            <div class="scroll-x"><table class="sect-table" id="sect-table"></table></div>
+            <div class="btn-row"><button class="btn" type="button" id="btn-reset-sect">Restaurar valores padrão</button></div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- RESULTADOS -->
+    <section class="results" aria-label="Resultados" aria-live="polite">
+      <div id="alerts"></div>
+      <div class="tiles" id="tiles"></div>
+      <div class="card reco" id="reco"></div>
+      <div class="inst-grid" id="insts"></div>
+
+      <div class="card">
+        <h2>Resultado no fim do prazo conforme o Ibovespa</h2>
+        <p class="sub" id="chart-sub"></p>
+        <div class="legend" id="legend"></div>
+        <div id="grafico"><div class="tip" id="tip"></div></div>
+        <p class="axis-note" id="axis-note"></p>
+      </div>
+
+      <div class="card">
+        <h2>Simule um cenário</h2>
+        <p class="sub">Escolha um cenário pronto ou digite a variação do Ibovespa e do dólar até o fim do prazo.</p>
+        <div class="presets" id="presets"></div>
+        <div class="cen-inputs">
+          <div class="field"><label for="c-di">Ibovespa (%)</label><input type="number" id="c-di" step="1" data-key="cen.dI" data-unit="pct" data-cen="1"></div>
+          <div class="field"><label for="c-du">Dólar (%)</label><input type="number" id="c-du" step="1" data-key="cen.dU" data-unit="pct" data-cen="1"></div>
+        </div>
+        <div class="scroll-x"><table class="res" id="cen-table"></table></div>
+      </div>
+
+      <div class="card">
+        <h2>Como sua carteira se comporta</h2>
+        <p class="sub">Peso de cada setor e o efeito de uma alta do dólar, segundo as premissas por setor.</p>
+        <div class="scroll-x"><table class="comp" id="comp-table"></table></div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="disc">
+    <p><strong>Ferramenta educacional, não é recomendação de investimento.</strong> Os números por setor são aproximações de referência, não estimativas estatísticas da sua carteira. Ações individuais oscilam mais do que o setor e reduzem a eficácia de qualquer hedge com índice.</p>
+    <p>Prêmios de opções são teóricos (Black-Scholes, sem o skew de volatilidade, que costuma encarecer puts fora do dinheiro). Confira especificações, margens e vencimentos na B3 e na sua corretora: mini índice R$ 0,20 por ponto com vencimento em meses pares; mini dólar US$ 10 mil com vencimento mensal; lote padrão de 100 opções de BOVA11.</p>
+    <p>Tributação de opções, futuros e venda de ações tem regras próprias (isenção de vendas de ações até R$ 20 mil no mês, ajustes de futuros tributados no mês do resultado). Confirme com um contador.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Setores: [grupo, id, nome, exemplos, beta, dólar, risco próprio] ---------- */
+const SETORES_BASE = [
+ ['Financeiro','bancos','Bancos','Itaú, Bradesco, Banco do Brasil, Santander',1.05,-0.10,0.15],
+ ['Financeiro','seguros','Seguradoras','BB Seguridade, Porto, Caixa Seguridade',0.70,0.00,0.15],
+ ['Financeiro','servfin','Serviços financeiros','B3, XP, adquirentes e corretoras',1.25,-0.10,0.22],
+ ['Financeiro','holdings','Holdings','Itaúsa, Bradespar',1.00,0.00,0.15],
+ ['Commodities e exportadoras','petroleo','Petróleo e gás','Petrobras, PRIO, Brava',1.05,0.35,0.22],
+ ['Commodities e exportadoras','mineracao','Mineração','Vale, CSN Mineração',0.85,0.45,0.22],
+ ['Commodities e exportadoras','siderurgia','Siderurgia e metalurgia','Gerdau, Usiminas, CSN',1.15,0.30,0.24],
+ ['Commodities e exportadoras','celulose','Papel e celulose','Suzano, Klabin',0.55,0.70,0.20],
+ ['Commodities e exportadoras','agro','Agronegócio','SLC Agrícola, BrasilAgro, São Martinho',0.65,0.40,0.20],
+ ['Commodities e exportadoras','proteinas','Proteínas e frigoríficos','Minerva e processadoras de carne',0.70,0.45,0.24],
+ ['Commodities e exportadoras','quimica','Química e petroquímica','Braskem, Unipar',1.20,0.15,0.30],
+ ['Commodities e exportadoras','industria_exp','Indústria exportadora','WEG, Embraer, Tupy',0.80,0.40,0.20],
+ ['Utilidades e infraestrutura','energia_gt','Energia: geração e transmissão','Taesa, Engie, ISA Energia',0.60,-0.05,0.12],
+ ['Utilidades e infraestrutura','energia_dist','Energia: distribuição','Equatorial, Neoenergia, CPFL',0.75,-0.10,0.15],
+ ['Utilidades e infraestrutura','saneamento','Saneamento','Sabesp, Copasa, Sanepar',0.80,-0.10,0.18],
+ ['Utilidades e infraestrutura','telecom','Telecomunicações','Vivo, TIM',0.60,-0.05,0.15],
+ ['Utilidades e infraestrutura','concessoes','Concessões e rodovias','Motiva, Ecorodovias',0.85,-0.10,0.18],
+ ['Utilidades e infraestrutura','combustiveis','Distribuição de combustíveis','Vibra, Ultrapar, Cosan',1.00,0.00,0.20],
+ ['Consumo e varejo','varejo','Varejo e e-commerce','Magazine Luiza, Lojas Renner, C&A',1.45,-0.25,0.28],
+ ['Consumo e varejo','consumo_basico','Consumo básico','Ambev, M. Dias Branco, Natura',0.65,-0.05,0.15],
+ ['Consumo e varejo','supermercados','Supermercados e atacarejo','Assaí, Grupo Mateus',1.00,-0.10,0.22],
+ ['Consumo e varejo','farmacias','Farmácias','RD Saúde, Pague Menos',0.90,-0.05,0.18],
+ ['Consumo e varejo','saude','Saúde','Rede D’Or, Hapvida, Fleury',1.15,-0.10,0.25],
+ ['Consumo e varejo','educacao','Educação','Cogna, Yduqs, Cruzeiro do Sul',1.40,-0.15,0.30],
+ ['Cíclicos domésticos','construcao','Construção civil','Cyrela, MRV, Direcional',1.35,-0.15,0.25],
+ ['Cíclicos domésticos','shoppings','Shoppings e imóveis','Multiplan, Allos, Iguatemi',1.05,-0.10,0.18],
+ ['Cíclicos domésticos','locacao','Locação de veículos e máquinas','Localiza, Movida, Vamos',1.40,-0.15,0.25],
+ ['Cíclicos domésticos','logistica','Logística e transporte','Rumo, Simpar, JSL',1.20,-0.15,0.22],
+ ['Cíclicos domésticos','aviacao','Aviação e turismo','Companhias aéreas, CVC',1.70,-0.60,0.35],
+ ['Cíclicos domésticos','industria_dom','Indústria doméstica','Randon, Dexco, autopeças',1.10,-0.10,0.20],
+ ['Cíclicos domésticos','tecnologia','Tecnologia e software','Totvs, Locaweb, Positivo',1.20,-0.05,0.25],
+ ['Cíclicos domésticos','smallcaps','Small caps diversificadas','Cesta de small caps, SMAL11',1.25,-0.10,0.18],
+ ['Fundos e outros ativos','etf_ibov','ETF de Ibovespa','BOVA11, BOVV11',1.00,0.00,0.02],
+ ['Fundos e outros ativos','fii','Fundos imobiliários','FIIs de tijolo e de papel',0.45,-0.05,0.12],
+ ['Fundos e outros ativos','exterior','Ações no exterior e BDRs','IVVB11, BDRs, ETFs globais',0.20,0.90,0.15],
+ ['Fundos e outros ativos','ouro','Ouro','GOLD11 e similares',0.00,0.90,0.15],
+ ['Fundos e outros ativos','cripto','Criptoativos','Bitcoin, HASH11',0.30,0.90,0.55]
+];
+function setoresPadrao(){
+  const o={};
+  SETORES_BASE.forEach(([grupo,id,nome,ex,beta,fx,idio])=>{o[id]={id,grupo,nome,ex,beta,fx,idio};});
+  return o;
+}
+const ORDEM = SETORES_BASE.map(s=>s[1]);
+
+const PRESETS = [
+  {id:'eleicao', nome:'Semana pós-eleição (−18%, dólar +9%)', dI:-0.1812, dU:0.0904},
+  {id:'correcao', nome:'Correção comum (−10%, dólar +3%)', dI:-0.10, dU:0.03},
+  {id:'fiscal', nome:'Crise fiscal aguda (−25%, dólar +15%)', dI:-0.25, dU:0.15},
+  {id:'externo', nome:'Choque externo (−12%, dólar +6%)', dI:-0.12, dU:0.06},
+  {id:'lado', nome:'Bolsa de lado (0%, dólar 0%)', dI:0, dU:0},
+  {id:'recupera', nome:'Bolsa recupera (+15%, dólar −6%)', dI:0.15, dU:-0.06}
+];
+
+/* ---------- Estado inicial ---------- */
+const state = {
+  valor:300000,
+  posicoes:[
+    {setor:'bancos',pct:25},{setor:'petroleo',pct:15},{setor:'mineracao',pct:10},{setor:'energia_gt',pct:15},
+    {setor:'varejo',pct:10},{setor:'construcao',pct:10},{setor:'saneamento',pct:10},{setor:'celulose',pct:5}
+  ],
+  meses:3, hedge:1, exp:'opcoes', pri:'equilibrio', risco:'ambos', caixa:30000,
+  estrutura:'put', strike:0.95,
+  mkt:{ibov:167921.8, usd:5.4443, bova:162.9, cdi:0.1365, vol:0.30, usdRate:0.05},
+  prem:{volI:0.25, volU:0.15, rho:-0.5, k:0.5, margem:0.12, reserva:0.10},
+  cen:{dI:-0.1812, dU:0.0904, preset:'eleicao'},
+  setores:setoresPadrao()
+};
+
+/* ---------- Formatação ---------- */
+const nf = (d)=>new Intl.NumberFormat('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const NF0=nf(0), NF1=nf(1), NF2=nf(2);
+function brl(v){ const s=NF0.format(Math.round(Math.abs(v))); return (v<-0.5?'−':'')+'R$ '+s; }
+function brl2(v){ return (v<0?'−':'')+'R$ '+NF2.format(Math.abs(v)); }
+function sbrl(v){ return (v>0.5?'+':'')+brl(v); }
+function pct(v,d){ d=d==null?1:d; const s=nf(d).format(Math.abs(v*100)); return (v<0&&Math.abs(v*100)>=Math.pow(10,-d)/2?'−':'')+s+'%'; }
+function spct(v,d){ return (v>0?'+':'')+pct(v,d); }
+function brlCompact(v){
+  const a=Math.abs(v), sg=v<0?'−':'';
+  if(a>=1e6) return sg+'R$ '+NF1.format(a/1e6)+' mi';
+  if(a>=1e3) return sg+'R$ '+NF0.format(a/1e3)+' mil';
+  return sg+'R$ '+NF0.format(a);
+}
+function plural(n,s,p){ return n===1?s:p; }
+
+/* ---------- Matemática ---------- */
+function ncdf(x){
+  const t=1/(1+0.2316419*Math.abs(x));
+  const d=0.3989422804014327*Math.exp(-x*x/2);
+  const p=d*t*(0.319381530+t*(-0.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));
+  return x>0?1-p:p;
+}
+function bsPut(S,K,T,r,sig){
+  if(K<=0) return 0;
+  if(T<=0||sig<=0) return Math.max(K*Math.exp(-r*Math.max(T,0))-S,0);
+  const sq=sig*Math.sqrt(T);
+  const d1=(Math.log(S/K)+(r+sig*sig/2)*T)/sq, d2=d1-sq;
+  return K*Math.exp(-r*T)*ncdf(-d2)-S*ncdf(-d1);
+}
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+/* ---------- Perfil da carteira ---------- */
+function perfil(st){
+  const S=st.setores, agg={}; let tot=0;
+  st.posicoes.forEach(p=>{ const v=Math.max(0,+p.pct||0); if(!S[p.setor]) return; agg[p.setor]=(agg[p.setor]||0)+v; tot+=v; });
+  const V=Math.max(0,+st.valor||0);
+  if(V<=0) return {erro:'Informe o valor da carteira.'};
+  if(tot<=0) return {erro:'Informe o peso de pelo menos um setor.'};
+  let beta=0,fx=0,resid2=0; const comp=[];
+  Object.keys(agg).forEach(id=>{
+    const w=agg[id]/tot, s=S[id];
+    beta+=w*s.beta; fx+=w*s.fx; resid2+=Math.pow(w*s.idio,2);
+    comp.push({id,w,valor:w*V,nome:s.nome,beta:s.beta,fx:s.fx});
+  });
+  comp.sort((a,b)=>b.w-a.w);
+  const sI=st.prem.volI, sU=st.prem.volU, rho=clamp(st.prem.rho,-0.99,0.99);
+  const cIU=rho*sI*sU;
+  const varP=beta*beta*sI*sI+fx*fx*sU*sU+2*beta*fx*cIU+resid2;
+  const cPI=beta*sI*sI+fx*cIU, cPU=beta*cIU+fx*sU*sU;
+  const hI=cPI/(sI*sI), hU=cPU/(sU*sU);
+  const effI=varP>0?(cPI*cPI)/(varP*sI*sI):0;
+  const effU=varP>0?(cPU*cPU)/(varP*sU*sU):0;
+  return {V,tot,beta,fx,resid2,varP,volP:Math.sqrt(Math.max(varP,0)),hI,hU,effI,effU,comp};
+}
+
+/* ---------- Instrumentos ---------- */
+function instrumentos(st,p){
+  const V=p.V, m=st.mkt, pr=st.prem, h=st.hedge;
+  const T=st.meses/12, du=Math.round(st.meses*21);
+  const cdiT=Math.pow(1+m.cdi,du/252)-1;
+  const rC=Math.log(1+m.cdi);
+  const out={cdiT,T};
+
+  // Opções sobre BOVA11
+  const S=m.bova, K=S*st.strike, K2=K-0.10*S;
+  const p1=bsPut(S,K,T,rC,m.vol), p2=bsPut(S,K2,T,rC,m.vol);
+  const trava=st.estrutura==='trava';
+  const px=trava?Math.max(p1-p2,0):p1;
+  const alvoQ=h*Math.max(p.hI,0)*V/S;
+  const lotes=alvoQ<50?0:Math.max(1,Math.round(alvoQ/100));
+  const qtd=lotes*100, premio=qtd*px;
+  out.put={S,K,K2,px,pxPut:p1,trava,alvoQ,lotes,qtd,premio,custoPct:premio/V,custoAnual:(px/S)/T,
+    cobertura:alvoQ>0?qtd/alvoQ:0, protegidoV:qtd*S};
+
+  // Mini índice
+  const nocW=m.ibov*0.20, alvoI=h*Math.max(p.hI,0)*V, rawW=alvoI/nocW;
+  const nW=rawW<0.5?0:Math.round(rawW);
+  const Fi=m.ibov*(1+cdiT), nocTW=nW*nocW;
+  const margW=nocTW*pr.margem, resW=nocTW*pr.reserva;
+  out.idx={nocW,alvoI,rawW,n:nW,Fi,nocT:nocTW,margem:margW,reserva:resW,caixa:margW+resW,
+    rolagens:Math.max(0,Math.ceil(st.meses/2)-1),cobertura:alvoI>0?nocTW/alvoI:0,ajuste10:nocTW*0.10,cheio:Math.floor(nW/5)};
+
+  // Mini dólar
+  const nocU=10000*m.usd, aplica=p.hU<-0.05;
+  const limitado=aplica&&-p.hU>1;
+  const alvoU=aplica?Math.min(-p.hU,1)*h*V:0, rawU=alvoU/nocU;
+  const nU=rawU<0.5?0:Math.round(rawU);
+  const Fu=m.usd*Math.pow((1+m.cdi)/(1+m.usdRate),T), nocTU=nU*nocU;
+  const margU=nocTU*pr.margem, resU=nocTU*pr.reserva;
+  out.usd={aplica,limitado,nocU,alvoU,rawU,n:nU,Fu,nocT:nocTU,margem:margU,reserva:resU,caixa:margU+resU,
+    carrego:nU*10000*(Fu-m.usd),empate:Fu/m.usd-1,rolagens:Math.max(0,st.meses-1),cobertura:alvoU>0?nocTU/alvoU:0,
+    carregoAnualPct:V>0?(nocTU/V)*((1+m.cdi)/(1+m.usdRate)-1):0};
+
+  // Reduzir posição
+  out.red={venda:h*V,cdiValor:h*V*cdiT,pctVenda:h};
+  return out;
+}
+
+function resultado(st,p,I,dI,dU){
+  const V=p.V, m=st.mkt;
+  const port=V*(p.beta*dI+p.fx*dU);
+  const ST=I.put.S*(1+dI);
+  const put=I.put.qtd*(Math.max(I.put.K-ST,0)-(I.put.trava?Math.max(I.put.K2-ST,0):0))-I.put.premio;
+  const idx=I.idx.n*0.20*(I.idx.Fi-m.ibov*(1+dI));
+  const usd=I.usd.n*10000*(m.usd*(1+dU)-I.usd.Fu);
+  const red=st.hedge*V*I.cdiT-st.hedge*port;
+  return {port,put,idx,usd,red};
+}
+
+/* ---------- Pontuação e justificativas ---------- */
+function avaliar(st,p,I){
+  const V=p.V, exp=st.exp, pri=st.pri, risco=st.risco, caixa=Math.max(0,+st.caixa||0);
+  const lista=[];
+
+  // PUT
+  (function(){
+    const o=I.put, pro=[], con=[]; let s=60, viavel=true, motivo='';
+    if(o.qtd===0){
+      viavel=false;
+      motivo=p.hI<0.15?'Sua carteira quase não acompanha o Ibovespa, então put de BOVA11 não a protege.':
+        'A exposição a proteger ('+brl(o.alvoQ*o.S)+') é menor que meio lote de 100 opções ('+brl(50*o.S)+').';
+    }
+    if(exp==='nunca'){s+=10; pro.push('Perda máxima é o prêmio pago: sem ajuste diário nem chamada de margem.');}
+    else if(exp==='opcoes'){s+=5; pro.push('Você já conhece opções; a perda máxima é o prêmio.');}
+    else pro.push('Perda máxima conhecida desde o início: o prêmio.');
+    if(pri==='alta'){s+=12; pro.push('Mantém o ganho se a bolsa subir.');}
+    else if(pri==='custo'){s-=12; con.push('Você paga o prêmio mesmo que a bolsa não caia.');}
+    else pro.push('Mantém o ganho se a bolsa subir.');
+    if(o.custoAnual>0.15){s-=15; con.push('Proteção cara agora: custa ≈ '+pct(o.custoAnual)+' ao ano, porque a volatilidade implícita está alta.');}
+    else if(o.custoAnual>0.10){s-=8; con.push('Custo de ≈ '+pct(o.custoAnual)+' ao ano, perto do que o CDI paga.');}
+    else if(o.custoAnual<0.06){s+=6; pro.push('Prêmio relativamente barato: ≈ '+pct(o.custoAnual)+' ao ano.');}
+    if(o.qtd>0) con.push('Custo total ≈ '+brl(o.premio)+' ('+pct(o.custoPct,2)+' da carteira) no prazo.');
+    if(st.strike<1) con.push('A proteção só começa depois de '+pct(1-st.strike,0)+' de queda do BOVA11.');
+    if(o.trava){pro.push('A trava custa menos que a put seca.'); con.push('A trava protege só até '+pct(1-(o.K2/o.S),0)+' de queda; abaixo disso você volta a perder.');}
+    if(p.effI<0.5){s-=15; con.push('BOVA11 acompanha mal sua carteira: explica só '+pct(p.effI,0)+' das oscilações.');}
+    else if(p.effI<0.7){s-=7; con.push('BOVA11 explica '+pct(p.effI,0)+' das oscilações da sua carteira. O resto fica descoberto.');}
+    if(o.premio>caixa && o.qtd>0){s-=20; con.push('Seu caixa livre ('+brl(caixa)+') não cobre o prêmio.');}
+    if(risco==='fiscal'){s-=5; con.push('Cobre a queda da bolsa, mas não ganha com a alta do dólar.');}
+    if(o.qtd>0 && Math.abs(o.cobertura-1)>0.3) {s-=8; con.push('Por causa do lote de 100, a cobertura fica em '+pct(o.cobertura,0)+' do alvo.');}
+    lista.push({id:'put',nome:o.trava?'Trava de baixa em BOVA11':'Put de BOVA11',curto:o.trava?'Trava BOVA11':'Put BOVA11',
+      s:viavel?clamp(s,0,100):0,viavel,motivo,pro,con});
+  })();
+
+  // ÍNDICE
+  (function(){
+    const o=I.idx, pro=[], con=[]; let s=60, viavel=true, motivo='';
+    if(o.n===0){
+      viavel=false;
+      motivo=p.hI<0.15?'Sua carteira quase não acompanha o Ibovespa.':
+        'A exposição a proteger ('+brl(o.alvoI)+') é menor que meio contrato de mini índice ('+brl(o.nocW/2)+').';
+    }
+    if(exp==='nunca'){s-=30; con.push('Tem ajuste diário e margem. Não é bom como primeira operação com derivativos.');}
+    else if(exp==='opcoes'){s-=8; con.push('Ajuste diário e margem exigem acompanhamento.');}
+    else {s+=10; pro.push('Você já conhece ajuste diário e margem.');}
+    pro.push('Sem prêmio: a parte protegida passa a render perto do CDI.');
+    if(pri==='custo'){s+=12;}
+    else if(pri==='alta'){s-=15; con.push('Trava a carteira: se a bolsa subir, o futuro devolve o ganho.');}
+    else con.push('Se a bolsa subir, o futuro devolve o ganho da parte protegida.');
+    if(o.n>0){
+      if(o.caixa>caixa){s-=25; con.push('Caixa livre ('+brl(caixa)+') não cobre margem e reserva para ajustes ('+brl(o.caixa)+').');}
+      else pro.push('Seu caixa cobre margem e reserva para ajustes ('+brl(o.caixa)+').');
+      if(Math.abs(o.cobertura-1)>0.3){s-=10; con.push('Arredondando para '+o.n+' '+plural(o.n,'contrato','contratos')+', a cobertura fica em '+pct(o.cobertura,0)+' do alvo.');}
+    }
+    if(p.effI>=0.85){s+=8; pro.push('Acompanha bem sua carteira: explica '+pct(p.effI,0)+' das oscilações.');}
+    else if(p.effI<0.5){s-=15; con.push('O índice acompanha mal sua carteira: explica só '+pct(p.effI,0)+' das oscilações.');}
+    else if(p.effI<0.7){s-=7; con.push('O índice explica '+pct(p.effI,0)+' das oscilações da sua carteira.');}
+    if(st.meses>=6){s+=5; pro.push('No prazo longo sai mais barato que comprar puts.');}
+    if(o.rolagens>0) con.push('Precisa rolar ≈ '+o.rolagens+' '+plural(o.rolagens,'vez','vezes')+' (vencimento em meses pares).');
+    if(o.cheio>=1) pro.push('Dá para usar '+o.cheio+' '+plural(o.cheio,'contrato cheio','contratos cheios')+' (IND) no lugar de cada 5 minis.');
+    lista.push({id:'idx',nome:'Venda de mini índice (WIN)',curto:'Mini índice',s:viavel?clamp(s,0,100):0,viavel,motivo,pro,con});
+  })();
+
+  // DÓLAR
+  (function(){
+    const o=I.usd, pro=[], con=[]; let s=45, viavel=true, motivo='';
+    if(!o.aplica){
+      viavel=false;
+      motivo='Sua carteira já tende a ganhar com a alta do dólar (exportadoras ou ativos dolarizados). Comprar dólar não protege a queda dela.';
+    } else if(o.n===0){
+      viavel=false;
+      motivo='A exposição cambial a proteger ('+brl(o.alvoU)+') é menor que meio contrato de mini dólar ('+brl(o.nocU/2)+').';
+    }
+    if(risco==='fiscal'){s+=20; pro.push('Bom para crise fiscal: nela a bolsa e o real costumam cair juntos.');}
+    else if(risco==='ambos'){s+=10; pro.push('Cobre o cenário de crise fiscal, em que o real se desvaloriza.');}
+    else {s-=10; con.push('Numa queda por motivo externo ou de empresa, o dólar pode não subir.');}
+    if(p.effU<0.3){s-=10; con.push('Proteção indireta: o dólar explica só '+pct(p.effU,0)+' das oscilações da carteira.');}
+    else pro.push('O dólar explica '+pct(p.effU,0)+' das oscilações da sua carteira.');
+    if(o.n>0){
+      con.push('Custo de carregamento: perde ≈ '+brl(o.carrego)+' no prazo se o dólar ficar parado (diferença de juros).');
+      if(o.carregoAnualPct>0.05){s-=10;}
+      if(o.caixa>caixa){s-=25; con.push('Caixa livre ('+brl(caixa)+') não cobre margem e reserva ('+brl(o.caixa)+').');}
+      else pro.push('Seu caixa cobre margem e reserva ('+brl(o.caixa)+').');
+    }
+    if(exp==='nunca'){s-=30; con.push('Ajuste diário e margem: não é bom como primeira operação.');}
+    else if(exp==='opcoes'){s-=10;}
+    else {s+=10; pro.push('Você já opera mini dólar e conhece o ajuste.');}
+    if(p.fx<-0.15){s+=8; pro.push('Setores que sofrem com dólar alto pesam na carteira.');}
+    if(pri==='custo') s-=5;
+    if(o.limitado) con.push('O hedge cambial ideal passaria do valor da carteira; a calculadora limita a 100% para não virar aposta no dólar.');
+    if(o.rolagens>0) con.push('Vencimento mensal: ≈ '+o.rolagens+' '+plural(o.rolagens,'rolagem','rolagens')+' no prazo.');
+    lista.push({id:'usd',nome:'Compra de mini dólar (WDO)',curto:'Mini dólar',s:viavel?clamp(s,0,100):0,viavel,motivo,pro,con});
+  })();
+
+  // REDUZIR
+  (function(){
+    const o=I.red, pro=[], con=[]; let s=55;
+    pro.push('Protege 100% da parte vendida, sem margem, prêmio ou ajuste diário.');
+    pro.push('A parte vendida rende CDI: ≈ '+brl(o.cdiValor)+' no prazo.');
+    if(exp==='nunca'){s+=15;} else if(exp==='opcoes'){s+=5;}
+    if(pri==='alta'){s-=10; con.push('Se a bolsa subir, a parte vendida fica de fora.');}
+    else if(pri==='custo'){s+=5;}
+    else con.push('Se a bolsa subir, a parte vendida fica de fora.');
+    if(p.effI<0.6){s+=10; pro.push('Funciona mesmo quando o índice não acompanha sua carteira.');}
+    if(I.idx.n===0 && I.put.qtd===0){s+=15; pro.push('Sua carteira é pequena para contratos e lotes de opções.');}
+    s-=5; con.push('Pode gerar IR sobre o lucro das ações vendidas, além de custo para recomprar depois.');
+    lista.push({id:'red',nome:'Reduzir a posição e ir para o CDI',curto:'Reduzir posição',s:clamp(s,0,100),viavel:true,motivo:'',pro,con});
+  })();
+
+  lista.sort((a,b)=>(b.viavel-a.viavel)||(b.s-a.s));
+  return lista;
+}
+
+function status(item,idx){
+  if(!item.viavel) return {txt:item.id==='usd'&&item.motivo.indexOf('ganhar')>=0?'Não se aplica':'Inviável',cls:'bad'};
+  if(idx===0) return {txt:'Melhor encaixe',cls:'good'};
+  if(item.s>=55) return {txt:'Alternativa',cls:'neutral'};
+  return {txt:'Pouco indicado',cls:'warn'};
+}
+
+function calcular(st){
+  const p=perfil(st);
+  if(p.erro) return {erro:p.erro};
+  const I=instrumentos(st,p);
+  const lista=avaliar(st,p,I);
+  return {p,I,lista};
+}
+
+/* ---------- Renderização ---------- */
+const $=s=>document.querySelector(s);
+const COR={sem:'var(--ref)',put:'var(--s1)',idx:'var(--s2)',usd:'var(--s3)',red:'var(--s4)'};
+const NOME_SERIE={sem:'Sem proteção',put:'Put BOVA11',idx:'Mini índice',usd:'Mini dólar',red:'Reduzir posição'};
+
+function opcoesSetor(sel){
+  let html='', g='';
+  ORDEM.forEach(id=>{
+    const s=state.setores[id];
+    if(s.grupo!==g){ if(g) html+='</optgroup>'; g=s.grupo; html+='<optgroup label="'+g+'">'; }
+    html+='<option value="'+id+'"'+(id===sel?' selected':'')+'>'+s.nome+'</option>';
+  });
+  return html+'</optgroup>';
+}
+
+function renderPosicoes(){
+  const V=Math.max(0,+state.valor||0);
+  const tot=state.posicoes.reduce((a,p)=>a+Math.max(0,+p.pct||0),0);
+  $('#pos-list').innerHTML=state.posicoes.map((p,i)=>{
+    const s=state.setores[p.setor];
+    const w=tot>0?Math.max(0,+p.pct||0)/tot:0;
+    return '<div class="pos-row">'+
+      '<select id="pos-setor-'+i+'" data-i="'+i+'" data-f="setor" aria-label="Setor '+(i+1)+'">'+opcoesSetor(p.setor)+'</select>'+
+      '<div class="pctwrap"><input type="number" id="pos-pct-'+i+'" data-i="'+i+'" data-f="pct" min="0" max="100" step="1" value="'+p.pct+'" aria-label="Peso do setor '+(i+1)+' em %"><span>%</span></div>'+
+      '<button type="button" class="icon-btn" data-del="'+i+'" aria-label="Remover setor '+(i+1)+'">×</button>'+
+      '<div class="val" id="pos-val-'+i+'">'+brl(w*V)+' · '+(s?s.ex:'')+'</div></div>';
+  }).join('');
+  atualizaSoma();
+}
+function atualizaSoma(){
+  const V=Math.max(0,+state.valor||0);
+  const tot=state.posicoes.reduce((a,p)=>a+Math.max(0,+p.pct||0),0);
+  const el=$('#sumline');
+  const ok=Math.abs(tot-100)<0.01;
+  el.className='sumline'+(ok?'':' bad');
+  el.innerHTML='<span>Soma dos pesos</span><span class="num">'+NF1.format(tot)+'%'+(ok?'':(tot<100?' · faltam '+NF1.format(100-tot)+'%':' · sobram '+NF1.format(tot-100)+'%'))+'</span>';
+  state.posicoes.forEach((p,i)=>{
+    const s=state.setores[p.setor]; const w=tot>0?Math.max(0,+p.pct||0)/tot:0;
+    const e=document.getElementById('pos-val-'+i); if(e) e.textContent=brl(w*V)+' · '+(s?s.ex:'');
+  });
+  $('#valor-fmt').textContent=brl(V);
+}
+
+function renderSetores(){
+  let html='<thead><tr><th>Setor</th><th>Beta</th><th>Dólar</th><th>Risco próprio</th></tr></thead><tbody>', g='';
+  ORDEM.forEach(id=>{
+    const s=state.setores[id];
+    if(s.grupo!==g){ g=s.grupo; html+='<tr class="grp"><td colspan="4">'+g+'</td></tr>'; }
+    html+='<tr><td>'+s.nome+'</td>'+
+      '<td><input type="number" step="0.05" id="sp-'+id+'-beta" data-sid="'+id+'" data-sf="beta" value="'+s.beta+'" aria-label="Beta de '+s.nome+'"></td>'+
+      '<td><input type="number" step="0.05" id="sp-'+id+'-fx" data-sid="'+id+'" data-sf="fx" value="'+s.fx+'" aria-label="Sensibilidade ao dólar de '+s.nome+'"></td>'+
+      '<td><input type="number" step="1" id="sp-'+id+'-idio" data-sid="'+id+'" data-sf="idio" value="'+Math.round(s.idio*100)+'" aria-label="Risco próprio de '+s.nome+' em %"></td></tr>';
+  });
+  $('#sect-table').innerHTML=html+'</tbody>';
+}
+
+function perfilCambial(fx){
+  if(fx>=0.25) return {t:'Dolarizada',c:'good',d:'Ganha com dólar alto'};
+  if(fx>=0.05) return {t:'Parte exportadora',c:'good',d:'Ganha um pouco com dólar alto'};
+  if(fx>-0.10) return {t:'Neutra ao dólar',c:'neutral',d:'Só o efeito da bolsa'};
+  return {t:'Doméstica',c:'warn',d:'Perde com dólar alto'};
+}
+function efeitoDolar(fx){
+  if(fx>=0.25) return '<span class="chip good">Ganha</span>';
+  if(fx>=0.05) return '<span class="chip good">Ganha um pouco</span>';
+  if(fx>-0.10) return '<span class="chip neutral">Neutro</span>';
+  if(fx>-0.40) return '<span class="chip warn">Perde</span>';
+  return '<span class="chip bad">Perde muito</span>';
+}
+
+function resumoTop(item,I,st){
+  const p=I.put, x=I.idx, u=I.usd, r=I.red;
+  switch(item.id){
+    case 'put': return 'Comprar '+p.lotes+' '+plural(p.lotes,'lote','lotes')+' ('+NF0.format(p.qtd)+' opções) de '+(p.trava?'trava de baixa':'put')+' de BOVA11 com strike de '+brl2(p.K)+(p.trava?' e venda em '+brl2(p.K2):'')+', vencimento em ≈ '+st.meses+' '+plural(st.meses,'mês','meses')+'. Custo teórico ≈ '+brl(p.premio)+' ('+pct(p.custoPct,2)+' da carteira).';
+    case 'idx': return 'Vender '+x.n+' '+plural(x.n,'contrato','contratos')+' de mini índice (nocional ≈ '+brl(x.nocT)+'). Separe ≈ '+brl(x.caixa)+' para margem e ajustes. A parte protegida passa a render perto do CDI.';
+    case 'usd': return 'Comprar '+u.n+' '+plural(u.n,'contrato','contratos')+' de mini dólar (US$ '+NF0.format(u.n*10000)+'). Se o dólar ficar parado, o custo é ≈ '+brl(u.carrego)+' no prazo. O dólar precisa subir '+pct(u.empate)+' só para empatar.';
+    case 'red': return 'Vender '+pct(r.pctVenda,0)+' da carteira (≈ '+brl(r.venda)+') e aplicar no CDI até o cenário melhorar. Rende ≈ '+brl(r.cdiValor)+' no prazo.';
+  }
+  return '';
+}
+
+function render(){
+  const R=calcular(state);
+  const alerts=[];
+  const tot=state.posicoes.reduce((a,p)=>a+Math.max(0,+p.pct||0),0);
+  if(R.erro){
+    $('#alerts').innerHTML='<div class="alert">'+R.erro+'</div>';
+    ['#tiles','#reco','#insts','#legend','#cen-table','#comp-table'].forEach(s=>$(s).innerHTML='');
+    $('#reco').style.display='none';
+    desenhaGrafico(null);
+    return;
+  }
+  $('#reco').style.display='';
+  if(Math.abs(tot-100)>=0.01) alerts.push('Os pesos somam '+NF1.format(tot)+'%. A calculadora usa as proporções entre eles, como se somassem 100%.');
+  const grande=R.p.comp.find(c=>(c.id==='petroleo'||c.id==='mineracao')&&c.w>=0.35);
+  if(grande) alerts.push(grande.nome+' pesa '+pct(grande.w,0)+' da carteira. Se a posição for concentrada em Petrobras ou Vale, opções da própria ação (bem líquidas) protegem melhor que BOVA11.');
+  $('#alerts').innerHTML=alerts.map(a=>'<div class="alert">'+a+'</div>').join('');
+
+  const p=R.p, I=R.I, L=R.lista;
+  const pc=perfilCambial(p.fx);
+  // Tiles
+  $('#tiles').innerHTML=
+    '<div class="tile"><span class="k">Beta da carteira</span><span class="v num">'+NF2.format(p.beta)+'</span><span class="d">'+(p.beta>1.05?'Oscila mais que o Ibovespa':p.beta<0.95?'Oscila menos que o Ibovespa':'Oscila como o Ibovespa')+'</span></div>'+
+    '<div class="tile"><span class="k">Exposição equivalente ao Ibovespa</span><span class="v num">'+brlCompact(p.hI*p.V)+'</span><span class="d">É isso que o hedge com índice precisa cobrir</span></div>'+
+    '<div class="tile"><span class="k">Perfil cambial</span><span class="v" style="font-size:20px">'+pc.t+'</span><span class="d">'+pc.d+' ('+spct(p.fx*0.10,1)+' a cada 10% de alta)</span></div>'+
+    '<div class="tile"><span class="k">Eficácia do hedge</span><span class="v num" style="font-size:20px">'+pct(p.effI,0)+' <span style="font-size:13px;color:var(--muted)">índice</span> · '+pct(p.effU,0)+' <span style="font-size:13px;color:var(--muted)">dólar</span></span><span class="d">Parte das oscilações que cada um explica</span></div>';
+
+  // Recomendação
+  const top=L[0];
+  const lead=top.viavel?resumoTop(top,I,state):top.motivo;
+  $('#reco').innerHTML='<div class="eyebrow">Melhor encaixe para o seu perfil</div><h2>'+top.nome+'</h2><p class="lead">'+lead+'</p>'+
+    '<div class="why"><div class="pro"><h3>A favor</h3><ul>'+top.pro.map(t=>'<li>'+t+'</li>').join('')+'</ul></div>'+
+    '<div class="con"><h3>Atenção</h3><ul>'+top.con.map(t=>'<li>'+t+'</li>').join('')+'</ul></div></div>'+
+    '<div class="rank">'+L.map((it,i)=>{const stt=status(it,i);return '<div class="rank-row"><span class="pos">'+(i+1)+'</span><span class="nm">'+it.nome+'</span><span><span class="chip '+stt.cls+'">'+stt.txt+'</span></span><span class="bar" aria-hidden="true"><i style="width:'+it.s+'%"></i></span><span class="sc">'+Math.round(it.s)+'</span></div>';}).join('')+'</div>';
+
+  // Cards dos instrumentos
+  const byId={}; L.forEach((it,i)=>byId[it.id]={it,i});
+  const card=(id,titulo,tick,kv,nota)=>{
+    const o=byId[id], stt=status(o.it,o.i);
+    return '<div class="inst'+(o.i===0?' top':'')+'"><div class="inst-head"><div><h3>'+titulo+'</h3><div class="tick">'+tick+'</div></div><span class="chip '+stt.cls+'">'+stt.txt+'</span></div>'+
+      (o.it.viavel?'<dl class="kv">'+kv.map(r=>'<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>').join('')+'</dl>':'<p class="note">'+o.it.motivo+'</p>')+
+      (o.it.viavel&&nota?'<p class="note">'+nota+'</p>':'')+'</div>';
+  };
+  const P=I.put, X=I.idx, U=I.usd, D=I.red;
+  $('#insts').innerHTML=
+    card('put',P.trava?'Trava de baixa em BOVA11':'Put de BOVA11','Opção de venda · lote de 100',[
+      ['Strike',brl2(P.K)+' ('+pct(state.strike,0)+')'],
+      P.trava?['Vende put em',brl2(P.K2)]:['Preço do BOVA11',brl2(P.S)],
+      ['Quantidade',NF0.format(P.qtd)+' ('+P.lotes+' '+plural(P.lotes,'lote','lotes')+')'],
+      ['Prêmio teórico por opção',brl2(P.px)],
+      ['Custo total',brl(P.premio)+' · '+pct(P.custoPct,2)],
+      ['Custo anualizado',pct(P.custoAnual)],
+      ['Valor protegido',brl(P.protegidoV)]
+    ],'Com volatilidade implícita de '+pct(state.mkt.vol,0)+'. No book, puts fora do dinheiro costumam sair mais caras que o teórico.')+
+    card('idx','Mini índice','WIN · R$ 0,20 por ponto · venda',[
+      ['Contratos',X.n+(X.cheio?' (ou '+X.cheio+' IND + '+(X.n-5*X.cheio)+' WIN)':'')],
+      ['Nocional',brl(X.nocT)+' · '+pct(X.cobertura,0)+' do alvo'],
+      ['Preço justo do futuro',NF0.format(X.Fi)+' pts'],
+      ['Margem estimada',brl(X.margem)],
+      ['Reserva para ajustes',brl(X.reserva)],
+      ['Caixa necessário',brl(X.caixa)],
+      ['Se a bolsa subir 10%','você paga '+brl(X.ajuste10)]
+    ],'O futuro negocia acima do à vista por causa do CDI. Por isso a parte protegida rende perto do CDI, ganhe ou perca a bolsa.')+
+    card('usd','Mini dólar','WDO · US$ 10 mil · compra',[
+      ['Contratos',String(U.n)],
+      ['Nocional','US$ '+NF0.format(U.n*10000)+' · '+brl(U.nocT)],
+      ['Preço justo do futuro',brl2(U.Fu)+' por US$'],
+      ['Alta do dólar para empatar',pct(U.empate)],
+      ['Custo se o dólar ficar parado',brl(U.carrego)],
+      ['Margem + reserva',brl(U.caixa)],
+      ['Eficácia estimada',pct(p.effU,0)]
+    ],'Protege pelo canal do risco Brasil, não pela bolsa em si. Com juro de '+pct(state.mkt.cdi,2)+' aqui e '+pct(state.mkt.usdRate,1)+' em dólar, carregar dólar comprado custa caro.')+
+    card('red','Reduzir posição','Vender ações · aplicar no CDI',[
+      ['Vender',pct(D.pctVenda,0)+' · '+brl(D.venda)],
+      ['Rendimento no CDI no prazo',brl(D.cdiValor)],
+      ['Margem ou prêmio','nenhum'],
+      ['Eficácia na parte vendida','100%']
+    ],'É a proteção mais simples. O custo é ficar de fora se a bolsa subir, mais IR e corretagem.');
+
+  desenhaGrafico(R);
+  renderCenario(R);
+  renderComp(R);
+}
+
+function renderComp(R){
+  const p=R.p;
+  $('#comp-table').innerHTML='<thead><tr><th>Setor</th><th>Peso</th><th>Valor</th><th>Beta</th><th>Se o dólar subir 10%</th><th>Dólar alto</th></tr></thead><tbody>'+
+    p.comp.map(c=>'<tr><td>'+c.nome+'</td><td>'+pct(c.w,1)+'</td><td>'+brl(c.valor)+'</td><td>'+NF2.format(c.beta)+'</td><td>'+spct(c.fx*0.10,1)+'</td><td class="ch">'+efeitoDolar(c.fx)+'</td></tr>').join('')+
+    '<tr><td><strong>Carteira</strong></td><td>100%</td><td>'+brl(p.V)+'</td><td><strong>'+NF2.format(p.beta)+'</strong></td><td>'+spct(p.fx*0.10,1)+'</td><td class="ch">'+efeitoDolar(p.fx)+'</td></tr></tbody>';
+}
+
+function seriesAtivas(R){
+  const s=[{id:'sem',dash:true}];
+  if(R.I.put.qtd>0) s.push({id:'put'});
+  if(R.I.idx.n>0) s.push({id:'idx'});
+  if(R.I.usd.n>0) s.push({id:'usd'});
+  s.push({id:'red'});
+  return s;
+}
+function valorSerie(id,r){
+  switch(id){case 'sem':return r.port;case 'put':return r.port+r.put;case 'idx':return r.port+r.idx;case 'usd':return r.port+r.usd;case 'red':return r.port+r.red;}
+  return 0;
+}
+
+function renderCenario(R){
+  const c=state.cen;
+  $('#presets').innerHTML=PRESETS.map(pr=>'<button type="button" data-preset="'+pr.id+'" aria-pressed="'+(c.preset===pr.id)+'">'+pr.nome+'</button>').join('');
+  const r=resultado(state,R.p,R.I,c.dI,c.dU);
+  const V=R.p.V;
+  const linhas=[
+    ['sem','Sem proteção',r.port,0],
+    ['put',NOME_SERIE.put+(R.I.put.trava?' (trava)':''),r.port,r.put,R.I.put.qtd>0],
+    ['idx','Mini índice',r.port,r.idx,R.I.idx.n>0],
+    ['usd','Mini dólar',r.port,r.usd,R.I.usd.n>0],
+    ['red','Reduzir posição',r.port*(1-state.hedge),r.red+r.port*state.hedge,true]
+  ];
+  const cls=v=>v>0.5?'pos-v':v<-0.5?'neg-v':'';
+  $('#cen-table').innerHTML='<thead><tr><th>Estratégia</th><th>Ações</th><th>Proteção</th><th>Total</th><th>Total %</th><th>vs. sem proteção</th></tr></thead><tbody>'+
+    linhas.map(l=>{
+      if(l[0]!=='sem'&&l[4]===false) return '<tr><td><span class="sw" style="background:'+COR[l[0]]+'"></span>'+l[1]+'</td><td colspan="5" style="text-align:left;font-family:var(--font-body);color:var(--muted)">Não se aplica a esta carteira</td></tr>';
+      const tot=l[2]+l[3];
+      return '<tr><td><span class="sw" style="background:'+COR[l[0]]+'"></span>'+l[1]+'</td><td class="'+cls(l[2])+'">'+sbrl(l[2])+'</td><td class="'+cls(l[3])+'">'+(l[0]==='sem'?'—':sbrl(l[3]))+'</td><td class="'+cls(tot)+'"><strong>'+sbrl(tot)+'</strong></td><td class="'+cls(tot)+'">'+spct(tot/V,1)+'</td><td>'+(l[0]==='sem'?'—':sbrl(tot-r.port))+'</td></tr>';
+    }).join('')+'</tbody>';
+}
+
+/* ---------- Gráfico ---------- */
+let chartCache=null;
+function eixoY(v){
+  if(v===0) return '0';
+  const a=Math.abs(v), sg=v<0?'−':'+';
+  if(a>=1e6) return sg+NF1.format(a/1e6)+' mi';
+  if(a>=1e3) return sg+NF0.format(a/1e3)+' mil';
+  return sg+NF0.format(a);
+}
+function niceStep(span,count){ const raw=span/count, mag=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/mag; return (n<1.5?1:n<3?2:n<7?5:10)*mag; }
+function desenhaGrafico(R){
+  const box=$('#grafico'), tip=$('#tip');
+  box.querySelectorAll('svg').forEach(e=>e.remove());
+  if(!R){ $('#legend').innerHTML=''; $('#chart-sub').textContent=''; $('#axis-note').textContent=''; chartCache=null; return; }
+  const k=state.prem.k;
+  const W=Math.max(300,Math.round(box.clientWidth||640)), narrow=W<560;
+  const H=narrow?280:340, mL=narrow?68:66, mR=narrow?18:118, mT=22, mB=36;
+  const xs=[]; for(let i=-30;i<=30;i++) xs.push(i/100);
+  const ser=seriesAtivas(R);
+  ser.forEach(s=>{ s.vals=xs.map(x=>valorSerie(s.id,resultado(state,R.p,R.I,x,-k*x))); });
+  let lo=Infinity,hi=-Infinity; ser.forEach(s=>s.vals.forEach(v=>{lo=Math.min(lo,v);hi=Math.max(hi,v);}));
+  lo=Math.min(lo,0); hi=Math.max(hi,0);
+  const step=niceStep(hi-lo||1,5); lo=Math.floor(lo/step)*step; hi=Math.ceil(hi/step)*step;
+  const pw=W-mL-mR, ph=H-mT-mB;
+  const X=x=>mL+(x+0.30)/0.60*pw, Y=v=>mT+(hi-v)/(hi-lo)*ph;
+  const NS='http://www.w3.org/2000/svg';
+  let g='';
+  for(let v=lo; v<=hi+step/2; v+=step){
+    const y=Y(v).toFixed(1);
+    g+='<line x1="'+mL+'" x2="'+(mL+pw)+'" y1="'+y+'" y2="'+y+'" stroke="'+(Math.abs(v)<step/1e6?'var(--axis)':'var(--grid)')+'" stroke-width="1"/>';
+    g+='<text x="'+(mL-8)+'" y="'+(+y+4)+'" text-anchor="end" font-size="11.5" fill="var(--muted)" font-family="var(--font-mono)">'+eixoY(Math.abs(v)<step/1e6?0:v)+'</text>';
+  }
+  g+='<text x="'+(mL-8)+'" y="11" text-anchor="end" font-size="11" fill="var(--muted)">R$</text>';
+  (narrow?[-0.3,-0.15,0,0.15,0.3]:[-0.3,-0.2,-0.1,0,0.1,0.2,0.3]).forEach(x=>{
+    const xx=X(x).toFixed(1);
+    if(x===0) g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+mT+'" y2="'+(mT+ph)+'" stroke="var(--grid)"/>';
+    g+='<text x="'+xx+'" y="'+(mT+ph+20)+'" text-anchor="middle" font-size="11.5" fill="var(--muted)" font-family="var(--font-mono)">'+(x>0?'+':x<0?'−':'')+Math.abs(Math.round(x*100))+'%</text>';
+  });
+  // cenário selecionado
+  const cx=state.cen.dI;
+  if(cx>=-0.3&&cx<=0.3){
+    const xx=X(cx).toFixed(1);
+    g+='<line x1="'+xx+'" x2="'+xx+'" y1="'+mT+'" y2="'+(mT+ph)+'" stroke="var(--muted)" stroke-dasharray="3 4"/>';
+    g+='<text x="'+(+xx+5)+'" y="'+(mT+11)+'" font-size="11" fill="var(--muted)">cenário</text>';
+  }
+  // linhas
+  ser.forEach(s=>{
+    const d=s.vals.map((v,i)=>(i?'L':'M')+X(xs[i]).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+    g+='<path d="'+d+'" fill="none" stroke="'+COR[s.id]+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"'+(s.dash?' stroke-dasharray="5 4"':'')+'/>';
+  });
+  // rótulos diretos
+  const labs=ser.map(s=>({id:s.id,y:Y(s.vals[s.vals.length-1]),y0:Y(s.vals[s.vals.length-1])})).sort((a,b)=>a.y-b.y);
+  for(let i=1;i<labs.length;i++){ if(labs[i].y-labs[i-1].y<15) labs[i].y=labs[i-1].y+15; }
+  const maxY=mT+ph; if(labs.length&&labs[labs.length-1].y>maxY){ const sh=labs[labs.length-1].y-maxY; labs.forEach(l=>l.y-=sh); }
+  if(!narrow) labs.forEach(l=>{
+    g+='<circle cx="'+(mL+pw).toFixed(1)+'" cy="'+l.y0.toFixed(1)+'" r="4" fill="'+COR[l.id]+'" stroke="var(--surface)" stroke-width="2"/>';
+    g+='<text x="'+(mL+pw+10)+'" y="'+(l.y+4).toFixed(1)+'" font-size="12" fill="var(--ink-2)">'+(narrow?NOME_SERIE[l.id].split(' ')[0]:NOME_SERIE[l.id])+'</text>';
+  });
+  g+='<g id="hover" style="display:none"><line id="hv-line" y1="'+mT+'" y2="'+(mT+ph)+'" stroke="var(--ink-2)" stroke-width="1"/>'+ser.map(s=>'<circle id="hv-'+s.id+'" r="4" fill="'+COR[s.id]+'" stroke="var(--surface)" stroke-width="2"/>').join('')+'</g>';
+  g+='<rect id="hit" x="'+mL+'" y="'+mT+'" width="'+pw+'" height="'+ph+'" fill="transparent"/>';
+  const svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('viewBox','0 0 '+W+' '+H); svg.setAttribute('role','img');
+  svg.setAttribute('aria-label','Resultado total da carteira em reais para variações do Ibovespa de −30% a +30%, para cada estratégia');
+  svg.innerHTML=g;
+  box.insertBefore(svg,tip);
+  chartCache={R,xs,ser,X,Y,mL,pw,W,H,k};
+
+  const todos=['sem','put','idx','usd','red'];
+  const ativos=ser.map(s=>s.id);
+  $('#legend').innerHTML=todos.map(id=>{
+    const on=ativos.indexOf(id)>=0;
+    return '<span class="'+(on?'':'off')+'"><i class="'+(id==='sem'?'dash':'')+'" style="background:'+COR[id]+'"></i>'+NOME_SERIE[id]+(on?'':' (não se aplica)')+'</span>';
+  }).join('');
+  $('#chart-sub').textContent='Resultado total em reais no fim de '+state.meses+' '+plural(state.meses,'mês','meses')+', já descontado o custo de cada proteção. Passe o mouse ou o dedo para ver os valores.';
+  $('#axis-note').textContent='Eixo horizontal: variação do Ibovespa até o fim do prazo. Premissa: o dólar anda '+NF2.format(k)+'% na direção oposta para cada 1% do Ibovespa.';
+
+  const hit=svg.querySelector('#hit'), hv=svg.querySelector('#hover');
+  function mover(ev){
+    const rect=svg.getBoundingClientRect();
+    const sx=(ev.clientX-rect.left)*(W/rect.width);
+    let x=(sx-mL)/pw*0.60-0.30; x=clamp(Math.round(x*100)/100,-0.30,0.30);
+    const i=Math.round((x+0.30)*100);
+    const xx=X(x);
+    hv.style.display='';
+    hv.querySelector('#hv-line').setAttribute('x1',xx); hv.querySelector('#hv-line').setAttribute('x2',xx);
+    ser.forEach(s=>{const c=hv.querySelector('#hv-'+s.id); c.setAttribute('cx',xx); c.setAttribute('cy',Y(s.vals[i]));});
+    const V=R.p.V;
+    tip.innerHTML='<div class="th">Ibovespa '+spct(x,0)+' · dólar '+spct(-k*x,1)+'</div>'+
+      ser.slice().sort((a,b)=>b.vals[i]-a.vals[i]).map(s=>'<div class="tr"><span class="sw" style="background:'+COR[s.id]+'"></span><span>'+NOME_SERIE[s.id]+'</span><b>'+sbrl(s.vals[i])+' · '+spct(s.vals[i]/V,1)+'</b></div>').join('');
+    tip.style.display='block';
+    const bw=box.clientWidth, tw=tip.offsetWidth, px=xx*(rect.width/W);
+    let left=px+14; if(left+tw>bw) left=px-tw-14; if(left<0) left=4;
+    tip.style.left=left+'px'; tip.style.top='8px';
+  }
+  hit.addEventListener('pointermove',mover);
+  hit.addEventListener('pointerdown',mover);
+  hit.addEventListener('pointerleave',()=>{hv.style.display='none'; tip.style.display='none';});
+}
+
+/* ---------- Ligação dos campos ---------- */
+function getKey(path){ return path.split('.').reduce((o,k)=>o[k],state); }
+function setKey(path,v){ const ks=path.split('.'); const last=ks.pop(); ks.reduce((o,k)=>o[k],state)[last]=v; }
+function preencheCampos(){
+  document.querySelectorAll('[data-key]').forEach(el=>{
+    const v=getKey(el.dataset.key);
+    if(el.type==='radio'){ el.checked=(el.value===String(v)); return; }
+    if(el.dataset.unit==='pct'){ el.value=+(v*100).toFixed(4); return; }
+    el.value=v;
+  });
+  $('#out-hedge').textContent=pct(state.hedge,0);
+}
+document.addEventListener('input',ev=>{
+  const el=ev.target;
+  if(el.dataset.key){
+    let v;
+    if(el.type==='radio'){ if(!el.checked) return; v=el.value; }
+    else if(el.tagName==='SELECT'){ v=el.dataset.type==='int'?parseInt(el.value,10):el.dataset.type==='float'?parseFloat(el.value):el.value; }
+    else { v=parseFloat(el.value); if(!isFinite(v)) return; if(el.dataset.unit==='pct') v=v/100; }
+    setKey(el.dataset.key,v);
+    if(el.dataset.cen) state.cen.preset='';
+    if(el.dataset.key==='hedge') $('#out-hedge').textContent=pct(state.hedge,0);
+    if(el.dataset.key==='valor') atualizaSoma();
+    render(); return;
+  }
+  if(el.dataset.i!==undefined){
+    const i=+el.dataset.i, f=el.dataset.f;
+    if(f==='pct'){ const v=parseFloat(el.value); state.posicoes[i].pct=isFinite(v)?v:0; atualizaSoma(); }
+    else { state.posicoes[i].setor=el.value; atualizaSoma(); }
+    render(); return;
+  }
+  if(el.dataset.sid){
+    const v=parseFloat(el.value); if(!isFinite(v)) return;
+    state.setores[el.dataset.sid][el.dataset.sf]=el.dataset.sf==='idio'?v/100:v;
+    render();
+  }
+});
+document.addEventListener('change',ev=>{ if(ev.target.tagName==='SELECT'||ev.target.type==='radio') ev.target.dispatchEvent(new Event('input',{bubbles:true})); });
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest('button'); if(!t) return;
+  if(t.dataset.del!==undefined){ state.posicoes.splice(+t.dataset.del,1); renderPosicoes(); render(); return; }
+  if(t.id==='btn-add'){
+    const usados=new Set(state.posicoes.map(p=>p.setor));
+    const livre=ORDEM.find(id=>!usados.has(id))||'bancos';
+    state.posicoes.push({setor:livre,pct:0}); renderPosicoes(); render();
+    const e=document.getElementById('pos-setor-'+(state.posicoes.length-1)); if(e) e.focus();
+    return;
+  }
+  if(t.id==='btn-equal'){
+    const n=state.posicoes.length; if(!n) return;
+    const base=Math.floor(1000/n)/10; let resto=+(100-base*n).toFixed(1);
+    state.posicoes.forEach((p,i)=>{p.pct=+(base+(i===0?resto:0)).toFixed(1);});
+    renderPosicoes(); render(); return;
+  }
+  if(t.id==='btn-reset-sect'){ state.setores=setoresPadrao(); renderSetores(); renderPosicoes(); render(); return; }
+  if(t.dataset.preset){
+    const pr=PRESETS.find(x=>x.id===t.dataset.preset);
+    state.cen={dI:pr.dI,dU:pr.dU,preset:pr.id};
+    $('#c-di').value=+(pr.dI*100).toFixed(2); $('#c-du').value=+(pr.dU*100).toFixed(2);
+    render();
+  }
+});
+let rz; window.addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(chartCache) desenhaGrafico(chartCache.R); },120); });
+
+window.HedgeCore={calcular,perfil,instrumentos,resultado,bsPut,state,setoresPadrao};
+
+preencheCampos();
+renderSetores();
+renderPosicoes();
+render();
+})();
+</script>
+</body>
+</html>
